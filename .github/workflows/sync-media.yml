@@ -1,0 +1,46 @@
+# Syncs the media/ tree to the GCS mirror bucket that serves WhatsApp
+# dialog media (rarus-public-lib-prod-iac). Replaces jsDelivr, whose
+# cold-cache origin pulls exceeded Twilio's media-fetch timeout (63019).
+#
+# qa branch  -> gs://rarus-public-lib-prod-iac/qa/media/
+# (a main -> prod/media/ job can be added when prod content diverges)
+#
+# Auth: PUBLIC_MEDIA_SYNC_CREDENTIALS repo secret — key of the
+# public-media-sync service account, which has objectAdmin on this one
+# bucket only (this repo is public; the SA can touch nothing else).
+name: Sync media to GCS
+
+on:
+  push:
+    branches: [qa]
+    paths: ['media/**']
+  workflow_dispatch: {} # manual first-run / re-sync
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.PUBLIC_MEDIA_SYNC_CREDENTIALS }}'
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      # -m parallel, -r recursive, -d mirror deletions.
+      # Content-Type is auto-detected from extension (mp4 -> video/mp4).
+      # Cache-Control: no-cache for now — updates visible immediately;
+      # revisit when we add caching.
+      - name: Rsync media/ to bucket
+        run: |
+          gsutil -m -h "Cache-Control:no-cache" \
+            rsync -r -d media/ gs://rarus-public-lib-prod-iac/qa/media/
+
+      - name: Verify a sample object
+        run: |
+          url="https://storage.googleapis.com/rarus-public-lib-prod-iac/qa/media/dialog/L-001/welcome/es.mp4"
+          code=$(curl -s -o /dev/null -w "%{http_code}" "$url")
+          type=$(curl -sI "$url" | tr -d '\r' | awk 'tolower($1)=="content-type:"{print $2}')
+          echo "GET $url -> $code ($type)"
+          test "$code" = "200" && test "$type" = "video/mp4"
