@@ -14,6 +14,7 @@ on:
   push:
     branches: [qa]
     paths: ['media/**']
+  workflow_dispatch: {} # manual first-run / re-sync
 
 jobs:
   sync:
