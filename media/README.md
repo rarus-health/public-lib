@@ -12,3 +12,7 @@ https://storage.googleapis.com/rarus-public-lib-prod-iac/qa/media/dialog/<videoA
 
 Layout: `media/dialog/<LOOP>/<key>/<locale>.mp4`, e.g. `media/dialog/L-001/welcome/es.mp4`.
 Keep clips ≤16 MB so WhatsApp plays them inline.
+
+Before committing any clip, re-encode it to the house standard (360p H.264
+CRF 28 veryslow, AAC 48k mono, +faststart) with `scripts/shrink-video.sh` —
+see `CLAUDE.md` at the repo root.
